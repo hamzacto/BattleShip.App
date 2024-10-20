@@ -21,7 +21,7 @@
     // Fetch game details (for continuing a game)
     private async Task FetchGame()
     {
-        var response = await Http.GetAsync($"/api/game/{gameId}");
+        var response = await Http.GetAsync($"http://localhost:5192/api/game/{gameId}");
         if (response.IsSuccessStatusCode)
         {
             var json = await response.Content.ReadAsStringAsync();
@@ -39,7 +39,7 @@
     private async Task StartNewGame()
     {
         var content = new StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
-        var response = await Http.PostAsync($"/api/game/start?playerId={playerId}&opponentPlayerId={opponentPlayerId}", content);
+        var response = await Http.PostAsync($"http://localhost:5192/api/game/start?playerId={playerId}&opponentPlayerId={opponentPlayerId}", content);
 
         if (response.IsSuccessStatusCode)
         {
@@ -57,7 +57,7 @@
     // Make a move
     private async Task MakeMove(int x, int y)
     {
-        var response = await Http.PostAsync($"/api/game/{gameId}/move?playerId={playerId}&x={x}&y={y}", null);
+        var response = await Http.PostAsync($"http://localhost:5192/api/game/{gameId}/move?playerId={playerId}&x={x}&y={y}", null);
         if (response.IsSuccessStatusCode)
         {
             await FetchGame();
@@ -73,7 +73,7 @@
     // Reset the game
     private async Task ResetGame()
     {
-        var response = await Http.PostAsync($"/api/game/{gameId}/restart", null);
+        var response = await Http.PostAsync($"http://localhost:5192/api/game/{gameId}/restart", null);
         if (response.IsSuccessStatusCode)
         {
             await StartNewGame();
