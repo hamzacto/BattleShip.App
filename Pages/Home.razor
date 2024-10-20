@@ -1,0 +1,129 @@
+﻿@page "/"
+
+@using BattleShip.API.Model;
+
+
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+@code {
+    private BattleShip.API.Model.GameState gameState;
+    private bool isGameStarted = false;
+    private bool isGameOver = false;
+
+    // Player and opponent IDs, set through user input or retrieved from API
+    private string playerId = "player1";
+    private string opponentPlayerId = "player2";
+
+    // Game ID after starting
+    private string gameId;
+
+    // Fetch game details (for continuing a game)
+    private async Task FetchGame()
+    {
+        var response = await Http.GetAsync($"/api/game/{gameId}");
+        if (response.IsSuccessStatusCode)
+        {
+            var json = await response.Content.ReadAsStringAsync();
+            gameState = System.Text.Json.JsonSerializer.Deserialize<BattleShip.API.Model.GameState>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+            isGameStarted = !gameState.IsGameOver;
+            isGameOver = gameState.IsGameOver;
+        }
+    }
+
+    // Start a new game
+    private async Task StartNewGame()
+    {
+        var content = new StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
+        var response = await Http.PostAsync($"/api/game/start?playerId={playerId}&opponentPlayerId={opponentPlayerId}", content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var json = await response.Content.ReadAsStringAsync();
+            gameState = System.Text.Json.JsonSerializer.Deserialize<BattleShip.API.Model.GameState>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+            gameId = gameState.GameId;
+            isGameStarted = true;
+        }
+    }
+
+    // Make a move
+    private async Task MakeMove(int x, int y)
+    {
+        var response = await Http.PostAsync($"/api/game/{gameId}/move?playerId={playerId}&x={x}&y={y}", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await FetchGame();
+        }
+    }
+
+    // Check game state for winner
+    private bool CheckGameOver()
+    {
+        return gameState?.IsGameOver ?? false;
+    }
+
+    // Reset the game
+    private async Task ResetGame()
+    {
+        var response = await Http.PostAsync($"/api/game/{gameId}/restart", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await StartNewGame();
+        }
+    }
+}
+
+<!-- UI for the Game -->
+@if (isGameStarted)
+{
+    <h3>Battle Ship Game</h3>
+    <div class="game-board">
+        <!-- Display Player Grid -->
+        <div class="player-grid">
+            <h4>Your Grid</h4>
+            @for (int i = 0; i < 10; i++)
+            {
+                <div>
+                    @for (int j = 0; j < 10; j++)
+                    {
+                        <button class="grid-cell">@gameState?.PlayerGrid?[i][j]</button>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Display Opponent Grid -->
+        <div class="opponent-grid">
+            <h4>Opponent Grid</h4>
+            @for (int i = 0; i < 10; i++)
+            {
+                <div>
+                    @for (int j = 0; j < 10; j++)
+                    {
+                        <button class="grid-cell" @onclick="() => MakeMove(i, j)">@gameState?.OpponentGrid?[i][j]</button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Show Game Over and Winner -->
+    @if (isGameOver)
+    {
+        <h4>Game Over! Winner: @gameState?.WinnerId</h4>
+        <button class="btn btn-primary" @onclick="ResetGame">Restart Game</button>
+    }
+}
+else
+{
+    <h3>Start a New Game</h3>
+    <button class="btn btn-primary" @onclick="StartNewGame">Start Game</button>
+}
