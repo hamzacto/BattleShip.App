@@ -108,7 +108,14 @@
                 <div>
                     @for (int j = 0; j < 10; j++)
                     {
-                        <button class="grid-cell" @onclick="() => MakeMove(i, j)">@gameState?.OpponentGrid?[i][j]</button>
+                        // Define local variables to capture the values for each iteration
+                        int localI = i;
+                        int localJ = j;
+                        01
+                        // Ensure that MakeMove uses the captured local values
+                        <button class="grid-cell" @onclick="() => MakeMove(localI, localJ)">
+                            @gameState?.OpponentGrid?[localI]?[localJ]
+                        </button>
                     }
                 </div>
             }
