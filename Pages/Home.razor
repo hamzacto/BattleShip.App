@@ -1,10 +1,8 @@
 ﻿@page "/"
 
-@using BattleShip.API.Model;
-
-
 @inject HttpClient Http
 @inject IJSRuntime JS
+@using BattleShip.API.Model;
 
 @code {
     private BattleShip.API.Model.GameState gameState;
@@ -30,7 +28,7 @@
                     PropertyNameCaseInsensitive = true
                 });
 
-            isGameStarted = !gameState.IsGameOver;
+            //isGameStarted = !gameState.IsGameOver;
             isGameOver = gameState.IsGameOver;
         }
     }
@@ -51,6 +49,7 @@
 
             gameId = gameState.GameId;
             isGameStarted = true;
+            isGameOver = false;
         }
     }
 
@@ -58,6 +57,9 @@
     private async Task MakeMove(int x, int y)
     {
         var response = await Http.PostAsync($"http://localhost:5192/api/game/{gameId}/move?playerId={playerId}&x={x}&y={y}", null);
+
+        var json = await response.Content.ReadAsStringAsync();
+
         if (response.IsSuccessStatusCode)
         {
             await FetchGame();
@@ -80,9 +82,8 @@
         }
     }
 }
-
 <!-- UI for the Game -->
-@if (isGameStarted)
+@if (isGameStarted && !isGameOver)
 {
     <h3>Battle Ship Game</h3>
     <div class="game-board">
@@ -94,6 +95,7 @@
                 <div>
                     @for (int j = 0; j < 10; j++)
                     {
+
                         <button class="grid-cell">@gameState?.PlayerGrid?[i][j]</button>
                     }
                 </div>
@@ -108,11 +110,9 @@
                 <div>
                     @for (int j = 0; j < 10; j++)
                     {
-                        // Define local variables to capture the values for each iteration
                         int localI = i;
                         int localJ = j;
-                        01
-                        // Ensure that MakeMove uses the captured local values
+
                         <button class="grid-cell" @onclick="() => MakeMove(localI, localJ)">
                             @gameState?.OpponentGrid?[localI]?[localJ]
                         </button>
@@ -122,15 +122,18 @@
         </div>
     </div>
 
+}
+else
+{
     <!-- Show Game Over and Winner -->
     @if (isGameOver)
     {
         <h4>Game Over! Winner: @gameState?.WinnerId</h4>
         <button class="btn btn-primary" @onclick="ResetGame">Restart Game</button>
     }
-}
-else
-{
-    <h3>Start a New Game</h3>
-    <button class="btn btn-primary" @onclick="StartNewGame">Start Game</button>
+    if (!isGameStarted)
+    {
+        <h3>Start a New Game</h3>
+        <button class="btn btn-primary" @onclick="StartNewGame">Start Game</button>
+    }
 }
