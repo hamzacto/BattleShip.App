@@ -9,11 +9,14 @@
     private bool isGameStarted = false;
     private bool isGameOver = false;
     private GameState game;
+    private BattleHistory battleHistory;
     private string winnerMessage = string.Empty;
     private string botId = "bot";
     // Player and opponent IDs, set through user input or retrieved from API
     private string playerId = "player1";
     private string opponentPlayerId = "player2";
+    private int undoNumberSteps = 0;
+    private bool showHistory = false;
 
     // Game ID after starting
     private string gameId;
@@ -58,8 +61,30 @@
     // Simple Bot Logic: Makes a random move on the player's grid
     private async Task BotMakeMove()
     {
-        
+
     }
+
+    private async Task undoMove()
+    {
+        var response = await Http.PostAsync($"http://localhost:5192/api/game/{gameId}/undo", null);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await FetchGame();
+        }
+    }
+
+    private async Task undoXMove()
+    {
+        var response = await Http.PostAsync($"http://localhost:5192/api/game/{gameId}/undo/{undoNumberSteps}", null);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await FetchGame();
+            undoNumberSteps = 0;
+        }
+    }
+
 
     // Make a move
     private async Task MakeMove(int x, int y)
@@ -82,6 +107,21 @@
         }     
     }
 
+    private async Task GetHistory()
+    {
+        var response = await Http.GetAsync($"http://localhost:5192/api/game/{gameId}/history");
+        if (response.IsSuccessStatusCode)
+        {
+            var json = await response.Content.ReadAsStringAsync();
+            battleHistory = System.Text.Json.JsonSerializer.Deserialize<BattleShip.API.Model.BattleHistory>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+            showHistory = true;
+
+        }
+    }
     // Check game state for winner
     private bool CheckGameOver()
     {
@@ -97,11 +137,28 @@
             await StartNewGame();
         }
     }
+
+    private async Task BackToGame()
+    {
+        showHistory = false;
+    }
 }
 <!-- UI for the Game -->
-@if (isGameStarted && !isGameOver)
+@if (isGameStarted && !isGameOver && !showHistory)
 {
-    <h3>Battle Ship Game</h3>
+    <div>
+        <h3>Battle Ship Game</h3>
+        <button @onclick="() => undoMove()">Undo move</button>
+        <button @onclick="() => ResetGame()">Restart Game</button>
+        <span>Undo X moves</span><input type="text" @bind="@undoNumberSteps"/>
+        @if (undoNumberSteps > 0)
+        {
+            <button @onclick="() => undoXMove()">Undo @undoNumberSteps moves</button>
+        }
+        <button @onclick="() => GetHistory()">Fetch history</button>
+
+    </div>
+
     <div class="game-board">
         <!-- Display Player Grid -->
         <div class="player-grid">
@@ -152,4 +209,119 @@ else
         <h3>Start a New Game</h3>
         <button class="btn btn-primary" @onclick="StartNewGame">Start Game</button>
     }
+}
+
+@if (showHistory)
+{
+    <button class="button" @onclick="BackToGame">Back To Game</button>
+    <div class="container mx-auto p-4">
+        @if (battleHistory == null)
+        {
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Battle History - Game #@battleHistory.GameId</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Move #</th>
+                                    <th>Player</th>
+                                    <th>Position</th>
+                                    <th>Result</th>
+                                    <th>Ship Hit</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var move in battleHistory.Moves.OrderBy(m => m.MoveNumber))
+                                {
+                                    <tr class="@(move.IsHit ? "table-success" : "table-danger")">
+                                        <td>@move.MoveNumber</td>
+                                        <td>@move.PlayerId</td>
+                                        <td>(@move.X, @move.Y)</td>
+                                        <td>
+                                            @if (move.IsHit)
+                                            {
+                                                <span class="badge bg-success">Hit!</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger">Miss</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (move.hitedShipType.HasValue)
+                                            {
+                                                <span class="badge bg-info">@move.hitedShipType</span>
+                                            }
+                                            else
+                                            {
+                                                <span>-</span>
+                                            }
+                                        </td>
+                                        <td>@move.Timestamp.ToString("MM/dd/yyyy HH:mm:ss")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4">
+                        <h4>Battle Statistics</h4>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5>Total Moves</h5>
+                                        <p class="h3">@battleHistory.Moves.Count</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5>Total Hits</h5>
+                                        <p class="h3">@battleHistory.Moves.Count(m => m.IsHit)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5>Hit Ratio</h5>
+                                        <p class="h3">@($"{(battleHistory.Moves.Any() ? (double)battleHistory.Moves.Count(m => m.IsHit) / battleHistory.Moves.Count * 100 : 0):F1}%")</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5>Battle Duration</h5>
+                                        <p class="h3">
+                                            @{
+                                                var duration = battleHistory.Moves.Any()
+                                                ? battleHistory.Moves.Max(m => m.Timestamp) - battleHistory.Moves.Min(m => m.Timestamp)
+                                                : TimeSpan.Zero;
+                                                @($"{duration.Minutes}m {duration.Seconds}s")
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 }
