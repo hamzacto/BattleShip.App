@@ -8,7 +8,9 @@
     private BattleShip.API.Model.GameState gameState;
     private bool isGameStarted = false;
     private bool isGameOver = false;
-
+    private GameState game;
+    private string winnerMessage = string.Empty;
+    private string botId = "bot";
     // Player and opponent IDs, set through user input or retrieved from API
     private string playerId = "player1";
     private string opponentPlayerId = "player2";
@@ -37,7 +39,7 @@
     private async Task StartNewGame()
     {
         var content = new StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
-        var response = await Http.PostAsync($"http://localhost:5192/api/game/start?playerId={playerId}&opponentPlayerId={opponentPlayerId}", content);
+        var response = await Http.PostAsync($"http://localhost:5192/api/game/start?playerId={playerId}&opponentPlayerId={botId}", content);
 
         if (response.IsSuccessStatusCode)
         {
@@ -53,6 +55,12 @@
         }
     }
 
+    // Simple Bot Logic: Makes a random move on the player's grid
+    private async Task BotMakeMove()
+    {
+        
+    }
+
     // Make a move
     private async Task MakeMove(int x, int y)
     {
@@ -62,8 +70,16 @@
 
         if (response.IsSuccessStatusCode)
         {
+            var random = new Random();
+            bool validMove = false;
+
+            int xr = random.Next(0, 10);
+            int yr = random.Next(0, 10);
+
+            var response_bot = await Http.PostAsync($"http://localhost:5192/api/game/{gameId}/move?playerId={botId}&x={xr}&y={yr}", null);
+
             await FetchGame();
-        }
+        }     
     }
 
     // Check game state for winner
